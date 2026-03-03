@@ -17,6 +17,7 @@ Requires Python 3.10.0. Maybe not `requires` but that is my current build env. P
 ```
 git clone https://github.com/cyberxml/bluing
 cd bluing
+python3.10 -m pip install -r requirements.txt
 ./install-pybluez.sh
 python3.10 setup.py build
 python3.10 setup.py install
