@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bluing"
+version = "0.1.0"
+description = "refactoring bluing/bluescan"
+authors = [
+    {name = "cyberxml", email = "cyberxml@mail.com"}
+]
+license = {text = "MIT"}
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "docopt","bluepy","pybluez","termcolor",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/cyberxml/bluing"

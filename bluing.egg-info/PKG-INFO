@@ -1,0 +1,19 @@
+Metadata-Version: 2.4
+Name: bluing
+Version: 0.1.0
+Summary: refactoring bluing/bluescan
+Author-email: cyberxml <cyberxml@mail.com>
+License: MIT
+Project-URL: Homepage, https://github.com/cyberxml/bluing
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: docopt
+Requires-Dist: bluepy
+Requires-Dist: pybluez
+Requires-Dist: termcolor
+Dynamic: license-file
+
+# bluescan ---- A powerful Bluetooth scanner
+
+forked from bluing v0.1.0
