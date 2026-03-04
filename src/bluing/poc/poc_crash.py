@@ -10,7 +10,7 @@ OUR_LOCAL_SCID = 0x40
 SMP_OPCODE_PAIRING_REQ = 0x01
 def main(src_hci, dst_bdaddr):
     l2cap_loop, _ = create_l2cap_connection(src_hci, dst_bdaddr)
-    print("Sending SMP_OPCODE_PAIRING_REQ in L2CAP connection...")
+    print "Sending SMP_OPCODE_PAIRING_REQ in L2CAP connection..."
     cmd_code = SMP_OPCODE_PAIRING_REQ
     the_id = 0x41       # not important
     cmd_len = 0x08

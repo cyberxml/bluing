@@ -30,3 +30,13 @@ src/bluing/res/gatt-service-uuid.txt
 src/bluing/res/oui.txt
 src/bluing/res/sdp_ProfileDescriptorList_protocol_ids.txt
 src/bluing/res/service-class-profile-ids.txt
+src/bluing/service_record/__init__.py
+src/bluing/service_record/ag_service_record.py
+src/bluing/service_record/hf_service_record.py
+src/bluing/service_record/hid_service_record.py
+src/bluing/service_record/mce_service_record.py
+src/bluing/service_record/mse_service_record.py
+src/bthci/__init__.py
+src/bthci/bthci.py
+src/pyclui/__init__.py
+src/pyclui/pyclui.py

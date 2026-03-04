@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-_bluescan() {
+_bluing() {
     local pword cword opts modes le_scan_types result
     pword=${COMP_WORDS[COMP_CWORD-1]}
     cword=${COMP_WORDS[COMP_CWORD]}
@@ -46,4 +46,4 @@ _bluescan() {
     COMPREPLY=$result
 }
 
-complete -F _bluescan bluescan
+complete -F _bluing bluing
