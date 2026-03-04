@@ -25,6 +25,39 @@ python3.10 setup.py build
 python3.10 setup.py install
 ```
 
+## Usage
+
+```
+root@ubuntu2204:/tmp/bluing# bluing -h
+bluing v0.1.0
+
+A powerful Bluetooth scanner.
+
+Usage:
+    bluing (-h | --help)
+    bluing (-v | --version)
+    bluing [-i <hcix>] -m br [--inquiry-len=<n>]
+    bluing [-i <hcix>] -m lmp BD_ADDR
+    bluing [-i <hcix>] -m sdp BD_ADDR
+    bluing [-i <hcix>] -m le [--timeout=<sec>] [--le-scan-type=<type>] [--sort=<key>]
+    bluing [-i <hcix>] -m gatt [--include-descriptor] --addr-type=<type> BD_ADDR
+    bluing [-i <hcix>] -m vuln --addr-type=br BD_ADDR
+
+Arguments:
+    BD_ADDR    Target Bluetooth device address
+
+Options:
+    -h, --help                  Display this help
+    -v, --version               Show the version
+    -i <hcix>                   HCI device for scan [default: hci0]
+    -m <mode>                   Scan mode, support BR, LE, LMP, SDP, GATT and vuln
+    --inquiry-len=<n>           Inquiry_Length parameter of HCI_Inquiry command [default: 8]
+    --timeout=<sec>             Duration of LE scan [default: 10]
+    --le-scan-type=<type>       Active or passive scan for LE scan [default: active]
+    --sort=<key>                Sort the discovered devices by key, only support RSSI now [default: rssi]
+    --include-descriptor        Fetch descriptor information
+    --addr-type=<type>          Public, random or BR
+```
 
 ## References
 
