@@ -2,13 +2,18 @@
 
 import sys
 import io
+import logging
 
+import pkg_resources
 from bluepy.btle import Peripheral
 from bluepy.btle import BTLEException
+from pyclui import green, blue, yellow, red
+import logging
+
+logger = logging.getLogger(__name__)
 
 from . import BlueScanner
 
-import pkg_resources
 
 # char_uuid = pkg_resources.resource_string()
 # service_uuid = pkg_resources.resource_string()
@@ -25,6 +30,9 @@ descriptor_uuid_file = io.TextIOWrapper(descriptor_uuid_file)
 services_spec = {}
 characteristics_spec = {}
 descriptors_spec = {}
+
+indent = ' ' * 4
+sig_uuid_suffix = '-0000-1000-8000-00805f9b34fb'
 
 for line in service_uuid_file:
     items = line.strip().split('\t')
@@ -67,19 +75,20 @@ class GATTScanner(BlueScanner):
 
         # Show service
         for service in services:
+            logger.debug('Start handle: {}'.format(service.hndStart))
+            logger.debug('End handle: {}'.format(service.hndEnd))
             characteristics = service.getCharacteristics()
-
-            print("\x1B[1;34mService declaration\x1B[0m", '(%s characteristics)' % len(characteristics))
-            print("    Handle:", "\"attr handle\" by using gatttool -b <BD_ADDR> --primary")
-            print("    Type: (May be primary service 00002800-0000-1000-8000-00805f9b34fb)")
-            print("    Value (Service UUID): \x1B[1;34m%s" % service.uuid, end=' ')
+            print(blue('Service'), '(0x%04x - 0x%04x, %s characteristics)' % (service.hndStart, service.hndEnd, len(characteristics)))
+            print(indent+'Handle: 0x%04x'%service.hndStart) # ", "\"attr handle\" by using gatttool -b <BD_ADDR> --primary
+            print(indent+'Type: (May be primary service 0x2800)')
+            print(indent+'Value (Service UUID): ', blue(str(service.uuid).replace(sig_uuid_suffix, '')), end=' ')
             try:
                 print('(' + services_spec[
                     '0x' + ("%s" % service.uuid)[4:8].upper()
                 ]['Name'] + ')', '\x1B[0m')
             except KeyError:
-                print("(Unknown service)", '\x1B[0m')
-            print('    Permission: Read Only, No Authentication, No Authorization\n')
+                print('('+red('unknown')+')', '\x1B[0m')
+            print(indent+'Permission: Read Only, No Authentication, No Authorization\n')
 
             # Show characteristic
             for characteristic in characteristics:
@@ -90,47 +99,47 @@ class GATTScanner(BlueScanner):
                     descriptors = characteristic.getDescriptors()
                 
                 try:
-                    print("\x1B[1;33m    Characteristic declaration\x1B[0m", '(%s descriptors)' % len(descriptors))
+                    print(indent+yellow('Characteristic'), '(%s descriptors)' % len(descriptors))
                     #print('-'*8)
-                    print("        Handle: %#06x" % (characteristic.getHandle() - 1))
-                    print("        Type: 00002803-0000-1000-8000-00805f9b34fb")
-                    print("        Value:")
-                    print("            Characteristic properties:\x1B[1;32m", characteristic.propertiesToString(), "\x1B[0m")
-                    print("            Characteristic value handle: %#06x" % characteristic.getHandle())
-                    print("            Characteristic UUID: \x1B[1;32m", characteristic.uuid, end=' ') # This UUID is also the type field of characteristic value declaration attribute.
+                    print(indent*2+'Handle: %#06x' % (characteristic.getHandle() - 1))
+                    print(indent*2+'Type: 0x2803 (Characteristic)')
+                    print(indent*2+'Value:')
+                    print(indent*3+'Characteristic properties:', green(characteristic.propertiesToString()))
+                    print(indent*3+'Characteristic value handle: %#06x' % characteristic.getHandle())
+                    print(indent*3+'Characteristic UUID: ', green(str(characteristic.uuid).replace(sig_uuid_suffix, '')), end=' ') # This UUID is also the type field of characteristic value declaration attribute.
                     try:
                         print('(' + characteristics_spec[
                             '0x' + ("%s" % characteristic.uuid)[4:8].upper()
-                        ]['Name'] + ')', '\x1B[0m')
+                        ]['Name'] + ')')
                     except KeyError:
-                        print("(Unknown characteristic)", '\x1B[0m')
-                    print('        Permission: Read Only, No Authentication, No Authorization')
+                        print('('+red('unknown')+')')
+                    print(indent*3+'Permission: Read Only, No Authentication, No Authorization')
                     
                     if characteristic.supportsRead():
-                        print("\x1B[1;33m    Characteristic value declaration\x1B[0m")
-                        print("        Handle:\x1B[1;32m %#06x" % characteristic.getHandle(), "\x1B[0m")
-                        print("        Type:", characteristic.uuid)
-                        print("        Value:\x1B[1;32m", characteristic.read(), "\x1B[0m")
-                        print("        Permission: Higher layer profile or implementation-specific")
+                        print(indent+yellow('Characteristic value'))
+                        print(indent*2+'Handle:', green('%#06x' % characteristic.getHandle()))
+                        print(indent*2+'Type:', str(characteristic.uuid).replace(sig_uuid_suffix, ''))
+                        print(indent*2+'Value:', green(str(characteristic.read())))
+                        print(indent*2+'Permission: Higher layer profile or implementation-specific')
                 except BTLEException as e:
                     print('        ' + str(e))
 
                 # Show descriptor
                 for descriptor in descriptors:
                     try:
-                        print("\x1B[1;33m    Descriptor declaration\x1B[0m")
-                        print("        Handle:\x1B[1;32m %#06x" % descriptor.handle, "\x1B[0m")
-                        print("        Type:\x1B[1;32m", descriptor.uuid, end=' ')
+                        print(indent+yellow('Descriptor'))
+                        print(indent*2+'Handle:', green('%#06x' % descriptor.handle))
+                        print(indent*2+'Type:', str(descriptor.uuid).replace(sig_uuid_suffix, ''), end=' ')
                         try:
                             print('(' + descriptors_spec[
                                 '0x' + ("%s" % descriptor.uuid)[4:8].upper()
-                            ]['Name'] + ')', '\x1B[0m')
+                            ]['Name'] + ')')
                         except KeyError:
-                            print("(Unknown descriptor)", '\x1B[0m')
-                        print('        Value:', descriptor.read())
-                        print('        Permissions:')
+                            print('(Unknown descriptor)')
+                        print(indent*2+'Value:', green(str(descriptor.read())))
+                        print(indent*2+'Permissions:')
                     except BTLEException as e:
-                        print('        ' + str(e))
+                        print(indent*2 + str(e))
                 print()
             print()
 

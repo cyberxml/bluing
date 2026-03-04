@@ -2,8 +2,9 @@
 
 import re
 import sys
-
 import subprocess
+
+from pyclui import blue, green, yellow, red
 
 
 def valid_bdaddr(addr:str) -> bool:
@@ -25,12 +26,15 @@ def find_rfkill_devid(dev='hci0') -> int:
         else:
             continue
     
-    raise Exception("Can't find the ID of %s in rfkill" % dev)
+    raise RuntimeError("Can't find the ID of %s in rfkill" % blue(dev))
 
 
 def __test():
     #valid_bdaddr('11:22:33:44:55:66')
-    print(find_rfkill_devid('hci1'))
+    try:
+        print(find_rfkill_devid('hci0'))
+    except RuntimeError as e:
+        print(e)
 
 
 if __name__ == '__main__':
