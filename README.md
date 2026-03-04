@@ -8,6 +8,8 @@ The pypi projects for bluing, bthci, and pyclui are all quarantined. The bluing 
 
 This code is cloned from bluing v0.1.0. It builds and installs. I don't know yet what functionality is missing. I will attempt to add features from the more recent builds of bluing.
 
+Latest import: v0.2.0
+
 This code built on Ubuntu 22.04 and Python 3.10.0
 
 ## Installation
