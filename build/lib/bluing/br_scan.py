@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 
+import sys
 import time
 import select
 import subprocess
 import warnings
 import struct
+import logging
 
 from bluetooth import DeviceDiscoverer
 
@@ -19,9 +21,10 @@ from bluetooth._bluetooth import HCI_EVENT_PKT, EVT_CMD_STATUS, \
     EVT_EXTENDED_INQUIRY_RESULT, EVT_INQUIRY_COMPLETE
 
 from bthci import HCI
-from pyclui import green, blue, yellow, red, \
-    DEBUG, INFO, WARNING, ERROR
+import logging
+from pyclui import green, blue, yellow, red
 
+from .ll import ll_vers
 from . import BlueScanner
 from . import service_cls_profile_ids
 from . import gap_type_name_pairs, \
@@ -29,6 +32,12 @@ from . import gap_type_name_pairs, \
     COMPLETE_32_BIT_SERVICE_CLS_UUID_LIST, \
     COMPLETE_128_BIT_SERVICE_CLS_UUID_LIST, COMPLETE_LOCAL_NAME, \
     SHORTENED_LOCAL_NAME, TX_POWER_LEVEL
+
+from .lmp import lmp_vers
+from .lmp import pp_lmp_features, pp_ext_lmp_features
+
+
+logger = logging.getLogger(__name__)
 
 
 major_dev_clses = {
@@ -45,68 +54,15 @@ major_dev_clses = {
     0b11111: 'Uncategorized'
 }
 
-# # DeviceDiscoverer is in bluetooth/bluez.py
-# class BRDiscoverer(DeviceDiscoverer):
-#     def pre_inquiry(self):
-#         '''Called when find_devices() returned'''
-#         self.existing_devs = []
-#         self.done = False
-    
-#     def device_discovered(self, address, device_class, rssi, name):
-#         if address not in self.existing_devs:
-#             self.existing_devs.append(address)
-#             print('addr:', blue(address))
-#             print('name:', blue(name.decode()))
-#             print('class: 0x%06X' % device_class)
-#             pp_cod(device_class)
-#             print('rssi:', rssi, '\n')
-
-#     def inquiry_complete(self):
-#         '''HCI_Inquiry_Complete 与 HCI_Command_Complete 都会导致该函数被回调'''
-#         self.done = True
 
 
 class BRScanner(BlueScanner):
-    # def scan(self, inquiry_len=8):
-    #     '''
-    #     inquiry_len - Maximum amount of time (N * 1.28 s) specified before the 
-    #                   Inquiry is halted.
-    #     '''
-    #     print(INFO, "BR scanning on " + blue("hci%d"%self.devid) + \
-    #           " with timeout " + blue("%.2f sec\n"%(inquiry_len*1.28)))
-
-    #     br_discover = BRDiscoverer(self.devid)
-
-    #     # find_devices() 会立即返回，期间 HCI_Inquiry command 也会被发送。
-    #     # flush_cache=False 不让之前 inquiry 发现的设备影响本次扫描结果
-    #     br_discover.find_devices(lookup_names=True, duration=inquiry_len, 
-    #         flush_cache=False)
-
-    #     readfiles = [br_discover,]
-
-    #     while True:
-    #         try:
-    #             br_discover.process_event()
-    #             rfds = select.select(readfiles, [], [])[0] # blocking
-    #             if br_discover in rfds:
-    #                 #print('[DEBUG] process_event()')
-    #                 # 只有调用 process_event()，device_discovered() 与 
-    #                 # inquiry_complete() 才会被回调
-    #                 br_discover.process_event()
-
-    #             if br_discover.done:
-    #                 break
-    #         except KeyboardInterrupt:
-    #             # send HCI_Inquiry_Cancel，当收到 HCI_Command_Complete 时
-    #             # inquiry_complete() 将被回调
-    #             br_discover.cancel_inquiry()
-
-
     def inquiry(self, lap=0x9e8b33, inquiry_len=0x08, num_rsp=0x00):
-        print(INFO, "BR scanning on " + blue("hci%d"%self.devid) + \
-              " with timeout " + blue("%.2f sec\n"%(inquiry_len*1.28))+'\n')
+        logger.info('BR scanning on ' + blue("hci%d"%self.devid) + \
+              ' with timeout ' + blue("%.2f sec\n"%(inquiry_len*1.28))+'\n')
         
         self.scanned_dev = []
+        self.remote_name_req_flag = True
         
         cmd_params = lap.to_bytes(3, 'little') + \
             inquiry_len.to_bytes(1, 'little') + num_rsp.to_bytes(1, 'little')
@@ -127,36 +83,112 @@ class BRScanner(BlueScanner):
                 if len(data) >= 4:
                     event_code = data[1]
                     if event_code == EVT_CMD_STATUS:
-                        # print(DEBUG, 'HCI_Command_Status')
+                        logger.debug('HCI_Command_Status')
                         pass
                     elif event_code == EVT_INQUIRY_RESULT:
-                        print(DEBUG, 'HCI_Inquiry_Result')
+                        logger.debug('HCI_Inquiry_Result')
                         self.pp_inquiry_result(data[3:])
                     elif event_code == EVT_INQUIRY_RESULT_WITH_RSSI:
-                        # print(DEBUG, 'HCI_Inquiry_Result_with_RSSI')
+                        logger.debug('HCI_Inquiry_Result_with_RSSI')
                         self.pp_inquiry_result_with_rssi(data[3:])
                     elif event_code == EVT_EXTENDED_INQUIRY_RESULT:
-                        # print(DEBUG, 'HCI_Extended_Inquiry_Result')
+                        logger.debug('HCI_Extended_Inquiry_Result')
                         self.pp_extended_inquiry_result(data[3:])
                     elif event_code == EVT_INQUIRY_COMPLETE:
-                        # print(DEBUG, 'HCI_Inquiry_Complete')
-                        print(INFO, 'Inquiry completed')
+                        logger.debug('HCI_Inquiry_Complete')
+                        logger.info('Inquiry completed\n')
+
+                        if self.remote_name_req_flag and len(self.scanned_dev) != 0:
+                            logger.info('Requesting the name of the scanned devices...')
+                            for bd_addr in self.scanned_dev:
+                                try:
+                                    name = HCI(self.iface).remote_name_request({
+                                        'BD_ADDR': bytes.fromhex(bd_addr.replace(':', '')),
+                                        'Page_Scan_Repetition_Mode': 0x01, 
+                                        'Reserved': 0x00, 'Clock_Offset': 0x0000
+                                    })['Remote_Name'].decode().strip()
+                                except Exception as e:
+                                    print(e)
+                                    name = ''
+
+                                print(bd_addr+':', blue(name))
                         break
                     else:
-                        print(DEBUG, "Unknow:", data)
+                        logger.debug('Unknow: {}'.format(data))
         except KeyboardInterrupt as e:
-            print(INFO, "BR/EDR devices scan canceled\n")
+            logger.info('BR/EDR devices scan canceled\n')
             HCI(self.iface).inquiry_cancel()
 
         hci_close_dev(dd.fileno())
+
+    def scan_lmp_feature(self, paddr):
+        hci = HCI(self.iface)
+        event_params = hci.create_connection({
+            'BD_ADDR': paddr,
+            'Packet_Type': 0xcc18,
+            'Page_Scan_Repetition_Mode': 0x02,
+            'Reserved': 0x00,
+            'Clock_Offset': 0x0000,
+            'Allow_Role_Switch': 0x01
+        })
+
+        if event_params['Status'] != 0:
+            logger.error('Failed to create ACL connection')
+            sys.exit(1)
+
+        event_params = hci.read_remote_version_information(cmd_params={
+            'Connection_Handle': event_params['Connection_Handle']
+        })
+
+        if event_params['Status'] != 0:
+            logger.error('Failed to read remote version')
+            sys.exit(1)
+
+        print(blue('Version'))
+        print('    Version:')
+        print(' '*8+lmp_vers[event_params['Version']], '(LMP)')
+        print(' '*8+ll_vers[event_params['Version']], '(LL)')
+        print('    Manufacturer name:', event_params['Manufacturer_Name'])
+        print('    Subversion:', event_params['Subversion'], '\n')
+
+        event_params = hci.read_remote_supported_features({
+            'Connection_Handle': event_params['Connection_Handle']
+        })
+        if event_params['Status'] != 0:
+            logger.error('Failed to read remote supported features')
+        else:
+            print(blue('LMP features'))
+            pp_lmp_features(event_params['LMP_Features'])
+            print()
+
+        if not True if (event_params['LMP_Features'][7] >> 7) & 0x01 else False:
+            sys.exit(1)
+
+        print(blue('Extended LMP features'))
+        event_params = hci.read_remote_extended_features({
+            'Connection_Handle': event_params['Connection_Handle'],
+            'Page_Number': 0x00
+        })
+        if event_params['Status'] != 0:
+            logger.error('Failed to read remote extented features')
+        else:
+            pp_ext_lmp_features(event_params['Extended_LMP_Features'], 0)
+            for i in range(1, event_params['Maximum_Page_Number']+1):
+                event_params = hci.read_remote_extended_features({
+                    'Connection_Handle': event_params['Connection_Handle'],
+                    'Page_Number': i})
+                if event_params['Status'] != 0:
+                    logger.error('Failed to read remote extented features, page {}'.format(i))
+                else:
+                    pp_ext_lmp_features(event_params['Extended_LMP_Features'], i)
 
 
     def pp_inquiry_result(self, params):
         '''Parse and print HCI_Inquiry_Result.'''
         num_rsp = params[0]
         if num_rsp != 1:
-            print(INFO, 'Num_Responses in HCI_Inquiry_Result is %d.'%num_rsp)
-            print(DEBUG, 'HCI_Inquiry_Result:', params)
+            logger.info('Num_Responses in HCI_Inquiry_Result is %d.'%num_rsp)
+            logger.debug('HCI_Inquiry_Result: {}'.format(params))
             return
 
         bd_addr, page_scan_repetition_mode, reserved, cod, clk_offset = \
@@ -187,8 +219,8 @@ class BRScanner(BlueScanner):
         '''Parse and print HCI_Inquiry_Result_with_RSSI.'''
         num_rsp = params[0]
         if num_rsp != 1:
-            print(INFO, 'Num_Responses in HCI_Inquiry_Result_with_RSSI is %d.'%num_rsp)
-            print(DEBUG, 'HCI_Inquiry_Result_with_RSSI:', params)
+            logger.info('Num_Responses in HCI_Inquiry_Result_with_RSSI is %d.'%num_rsp)
+            logger.debug('HCI_Inquiry_Result_with_RSSI: {}'.format(params))
             return
 
         bd_addr, page_scan_repetition_mode, reserved, cod, clk_offset, rssi = \
@@ -197,7 +229,7 @@ class BRScanner(BlueScanner):
         bd_addr = ':'.join(['%02X'%b for b in bd_addr[::-1]])
         if bd_addr in self.scanned_dev:
             return
-    
+
         print('Addr:', blue(bd_addr))
         # print('name:', blue(name.decode()))
         print('Page scan repetition mode: ', end='')
@@ -219,8 +251,8 @@ class BRScanner(BlueScanner):
         '''Parse and print HCI_Extended_Inquiry_Result'''
         num_rsp = params[0]
         if num_rsp != 1:
-            print(INFO, 'Num_Responses in HCI_Extended_Inquiry_Result is %d.'%num_rsp)
-            print(DEBUG, 'HCI_Extended_Inquiry_Result:', params)
+            logger.info('Num_Responses in HCI_Extended_Inquiry_Result is %d.'%num_rsp)
+            logger.debug('HCI_Extended_Inquiry_Result: {}'.format(params))
             return
 
         bd_addr, page_scan_repetition_mode, reserved, cod, \
@@ -230,7 +262,7 @@ class BRScanner(BlueScanner):
         bd_addr = ':'.join(['%02X'%b for b in bd_addr[::-1]])
         if bd_addr in self.scanned_dev:
             return
-    
+
         print('Addr:', blue(bd_addr))
         # print('name:', blue(name.decode()))
         print('Page scan repetition mode: ', end='')
@@ -262,16 +294,13 @@ def pp_page_scan_repetition_mode(val):
 
 
 def pp_cod(cod:int):
-    '''Print and parse Class of Device.'''
-    #print(DEBUG, 'br_scan.py pp_cod()')
-    if cod > 0xFFFFFF:
-        print(WARNING, "CoD's Format Type is not format #1")
-        return
-    elif cod & 0x000003 != 0:
-        print(WARNING, "CoD's Format Type is not format #1")
+    '''Print and parse the Class of Device.'''
+    logger.debug('Entered br_scan.py, pp_cod()')
+    if cod > 0xFFFFFF or cod & 0x000003 != 0:
+        logger.warning('CoD\'s Format Type is not format #1')
         return
 
-    print('    Service Class: %s' % bin(cod>>13))
+    print('\tService Class: %s' % bin(cod>>13))
     information = lambda b: (b >> 23) & 1
     telephony = lambda b: (b >> 22) & 1
     audio = lambda b: (b >> 21) & 1
@@ -282,37 +311,37 @@ def pp_cod(cod:int):
     positioning = lambda b: (b >> 16) & 1
     limited_discoverable_mode = lambda b: (b >> 13) & 1
 
-    # Parse Service Class Field
+    # Parse Service Class field
     if information(cod):
-        print(' '*8+'Information (WEB-server, WAP-server, ...)')
+        print('\t\t'+'Information (WEB-server, WAP-server, ...)')
 
     if telephony(cod):
-        print(' '*8+'Telephony (Cordless telephony, Modem, Headset service, ...)')
+        print('\t\t'+'Telephony (Cordless telephony, Modem, Headset service, ...)')
 
     if audio(cod):
-        print(' '*8+'Audio (Cordless telephony, Modem, Headset service, ...)')
+        print('\t\t'+'Audio (Cordless telephony, Modem, Headset service, ...)')
 
     if object_transfer(cod):
-        print(' '*8+'Object Transfer (v-Inbox, v-Folder, ...)')
+        print('\t\t'+'Object Transfer (v-Inbox, v-Folder, ...)')
 
     if capturing(cod):
-        print(' '*8+'Capturing (Scanner, Microphone, ...)')
+        print('\t\t'+'Capturing (Scanner, Microphone, ...)')
 
     if rendering(cod):
-        print(' '*8+'Rendering (Printing, Speaker, ...)')
+        print('\t\t'+'Rendering (Printing, Speaker, ...)')
 
     if networking(cod):
-        print(' '*8+'Networking (LAN, Ad hoc, ...)')
+        print('\t\t'+'Networking (LAN, Ad hoc, ...)')
 
     if positioning(cod):
-        print(' '*8+'Positioning (Location identification)')
+        print('\t\t'+'Positioning (Location identification)')
 
     if limited_discoverable_mode(cod):
-        print(' '*8+'Limited Discoverable Mode')
+        print('\t\t'+'Limited Discoverable Mode')
 
     # Parse Major Device Class
     major_dev_cls = (cod>>8)&0x001F
-    print('    Major Device Class: %s,'%bin(major_dev_cls), blue(major_dev_clses[major_dev_cls]))
+    print('\tMajor Device Class: %s,'%bin(major_dev_cls), blue(major_dev_clses[major_dev_cls]))
 
     # Parse Minor Device class
     pp_minor_dev_cls((cod>>8)&0x0000, major_dev_cls)
@@ -358,7 +387,7 @@ def pp_ext_inquiry_rsp(ext_inq_rsp):
             if length - 1 >= 4:
                 eir_data = data[1:]
                 if len(eir_data) % 4 != 0:
-                    print('\t\t'+INFO, 'Invalid EIR data length: %d'%len(eir_data), eir_data)
+                    logger.info('\t\tInvalid EIR data length: {} {}'.format(len(eir_data), eir_data))
                     continue
                 for i in range(0, len(eir_data), 4):
                     uuid = int.from_bytes(eir_data[i:i+4], byteorder='little')
@@ -370,11 +399,14 @@ def pp_ext_inquiry_rsp(ext_inq_rsp):
             if length - 1 >= 16:
                 eir_data = data[1:]
                 if len(eir_data) % 16 != 0:
-                    print('\t\t'+INFO, 'Invalid EIR data length: %d'%len(eir_data), eir_data)
+                    logger.info('\t\tInvalid EIR data length: {} {}'.format(len(eir_data), eir_data))
                     continue
                 for i in range(0, len(eir_data), 16):
                     uuid = int.from_bytes(eir_data[i:i+16], byteorder='little')
-                    print('\t\t0x%032x'%uuid)
+                    uuid_str = '%032X' % uuid
+                    print('\t\t', end='')
+                    print(blue('-'.join([uuid_str[:8], uuid_str[8:12], 
+                        uuid_str[12:16], uuid_str[16:20], uuid_str[20:32]])))   
             else:
                 print('\t\t'+red('None'))
         elif data_type == SHORTENED_LOCAL_NAME or \

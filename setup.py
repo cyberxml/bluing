@@ -57,7 +57,7 @@ if __name__ == "__main__":
 
         install_requires=[
             'pybluez>=0.23', 'bluepy>=1.3.0', 'docopt>=0.6.2', 
-            'termcolor>=1.1.0'
+            'termcolor>=1.1.0',
         ],
 
         # metadata to display on PyPI

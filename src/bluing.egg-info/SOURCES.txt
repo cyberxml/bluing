@@ -11,8 +11,10 @@ src/bluing/hci.py
 src/bluing/helper.py
 src/bluing/le_scan.py
 src/bluing/ll.py
+src/bluing/lmp.py
 src/bluing/lmp_scan.py
 src/bluing/sdp_scan.py
+src/bluing/serial_protocol.py
 src/bluing/service_record.py
 src/bluing/stack_scan.py
 src/bluing/ui.py
