@@ -3,4 +3,5 @@ docopt>=0.6.2
 termcolor>=1.1.0
 # pybluez
 scapy
-serial
+pyserial
+btsmp
