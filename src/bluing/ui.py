@@ -12,7 +12,7 @@ Usage:
     bluing (-h | --help)
     bluing (-v | --version)
     bluing [-i <hci>] -m br [--inquiry-len=<n>]
-    bluing [-i <hci>] -m br --lmp-feature BD_ADDR
+    bluing [-i <hci>] -m br --lmp-features BD_ADDR
     bluing [-i <hci>] -m le [--scan-type=<type>] [--timeout=<sec>] [--sort=<key>]
     bluing [-i <hci>] -m le --ll-feature [--timeout=<sec>] --addr-type=<type> BD_ADDR
     bluing -m le --adv [--channel=<num>]
@@ -30,7 +30,7 @@ Options:
     -i <hci>                HCI device used for subsequent scans. [default: The first HCI device]
     -m <mode>               Scan mode, support BR, LE, SDP, GATT and vuln.
     --inquiry-len=<n>       Inquiry_Length parameter of HCI_Inquiry command. [default: 8]
-    --lmp-feature           Scan LMP features of the remote BR/EDR device.
+    --lmp-features          Scan LMP features of the remote BR/EDR device.
     --scan-type=<type>      Scan type used for scanning LE devices, active or 
                             passive. [default: active]
     --timeout=<sec>         Duration of the LE scanning, but may not be precise. [default: 10]

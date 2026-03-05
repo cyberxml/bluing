@@ -12,6 +12,12 @@ Latest import: v0.4.1
 
 This code built on Ubuntu 22.04 and Python 3.10.0
 
+BlueToolkit (bluekit) has a dependency on `bluescan --lmp-features`. The flag `--lmp-feature` (singular) appears in v0.4.0. The flag `--lmp-features` (plural) appears in v0.9.0.
+
+```
+BLUING_BR_LMP = ("bluing br --lmp-features {target}", 'bluing_lmp.log')
+```
+
 ## Installation
 
 Requires Python 3.10.0. Maybe not `requires` but that is my current build env. PyBluez did not install from PyPi so build from the repo.
