@@ -9,6 +9,7 @@ src/bluing/br_scan.py
 src/bluing/gatt_scan.py
 src/bluing/hci.py
 src/bluing/helper.py
+src/bluing/le_scan.py
 src/bluing/ll.py
 src/bluing/lmp.py
 src/bluing/lmp_scan.py

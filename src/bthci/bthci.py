@@ -102,6 +102,7 @@ HCI_FILTER_SIZE = 14 # 4 + 4*2 + 2
 
 from pyclui import WARNING
 
+DEFAULT_HCI_STRING = 'hci0'
 
 class HCI:
     def __init__(self, iface='hci0'):
@@ -111,6 +112,16 @@ class HCI:
 
     @classmethod
     def hcix2devid(cls, hcix:str) -> int:
+        devid = re.findall('(0)|([1-9]+)', hcix, flags=0)
+        if len(devid) == 1 and ((devid[0][0] == '') ^ (devid[0][1] == '')):
+            devid = int(devid[0][0]) if devid[0][0] != '' else int(devid[0][1])
+        else:
+            devid = -1
+
+        return devid
+
+    @classmethod
+    def hcistr2devid(cls, hcix:str) -> int:
         devid = re.findall('(0)|([1-9]+)', hcix, flags=0)
         if len(devid) == 1 and ((devid[0][0] == '') ^ (devid[0][1] == '')):
             devid = int(devid[0][0]) if devid[0][0] != '' else int(devid[0][1])
@@ -651,7 +662,7 @@ class HCI:
 
 
     #################### Informational Parameters ###############################
-    def read_bd_addr(self) -> dict:
+    def read_bdaddr(self) -> dict:
         r"""'Return BD_ADDR string "XX:XX:XX:XX:XX:XX'"""
         dd = hci_open_dev(self.devid)
 
@@ -877,6 +888,9 @@ class HCI:
         '''
         pass
         
+    def get_default_hcistr():
+        return DEFAULT_HCI_STRING   
+
 
 def hci_write_local_name(params:bytes, iface='hci0'):
     ogf = HCI_CTRL_BASEBAND_CMD_OGF

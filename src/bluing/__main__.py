@@ -99,7 +99,7 @@ def main():
 
         if args['-m'] == 'br':
             br_scanner = BRScanner(args['-i'])
-            if args['--lmp-feature']:
+            if args['--lmp-features']:
                 br_scanner.scan_lmp_feature(args['BD_ADDR'])
             else:
                 br_scanner = BRScanner(args['-i'])
